@@ -63,7 +63,9 @@ jobs:
 
       - name: Set extra tags if needed
         if: ${{ github.event_name != 'pull_request' && matrix.context.dockerfile == 'Dockerfile' }}
-        run: echo EXTRA_TAGS="-t ${{ env.REPOSITORY }}:${{ env.VERSION }} -t ${{ env.REPOSITORY }}:latest-${{ matrix.context.os }} -t ${{ env.REPOSITORY }}:latest" >> $GITHUB_ENV
+        run: |
+          echo EXTRA_TAGS="-t ${{ env.REPOSITORY }}:${{ env.VERSION }} -t ${{ env.REPOSITORY }}:latest-${{ matrix.context.os }} -t ${{ env.REPOSITORY }}:latest" >> $GITHUB_ENV
+          echo EXTRA_ROOT_TAGS="-t ${{ env.REPOSITORY }}:${{ env.VERSION }}-root -t ${{ env.REPOSITORY }}:latest-${{ matrix.context.os }}-root -t ${{ env.REPOSITORY }}:latest-root" >> $GITHUB_ENV
 
       - name: Build the Docker image
         run: >
@@ -78,3 +80,16 @@ jobs:
           --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
           --build-arg VERSION=${{ env.VERSION }}
           --build-arg VCS_REF=${{ github.sha }}
+
+      - name: Build the root Docker image
+        run: >
+          docker buildx build . ${PUSH_ARG} --no-cache
+          --platform ${{ matrix.context.platforms }}
+          -f Dockerfile.root
+          -t ${{ env.REPOSITORY }}:${{ env.VERSION }}-${{ matrix.context.node }}-root
+          -t ${{ env.REPOSITORY }}:${{ env.VERSION }}-${{ matrix.context.node }}-${{ matrix.context.os }}-root
+          -t ${{ env.REPOSITORY }}:latest-${{ matrix.context.node }}-root
+          -t ${{ env.REPOSITORY }}:latest-${{ matrix.context.node }}-${{ matrix.context.os }}-root
+          ${EXTRA_ROOT_TAGS}
+          --build-arg FROM=${{ env.REPOSITORY }}:${{ env.VERSION }}-${{ matrix.context.node }}-${{ matrix.context.os }}
+
